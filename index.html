@@ -1,1 +1,1335 @@
-asdadasda
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEON CYBER // SYNTH LAB</title>
+  <style>
+    :root {
+      --bg: #07070c;
+      --cyan: #00f3ff;
+      --magenta: #ff0055;
+      --green: #39ff14;
+      --panel: #0d0d14;
+      --panel-border: #1a1a2e;
+      --text: #c8e8ff;
+      --dim: #5a6a7a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.12) 2px, rgba(0,0,0,.12) 4px);
+      z-index: 9998;
+    }
+    .scanline {
+      position: fixed; inset: 0; pointer-events: none; z-index: 9997;
+      background: linear-gradient(rgba(0,243,255,.03) 50%, transparent 50%);
+      background-size: 100% 4px;
+      animation: scan 8s linear infinite;
+    }
+    @keyframes scan { to { background-position: 0 40px; } }
+
+    .game-bar {
+      display: grid;
+      grid-template-columns: 160px 1fr 100px;
+      gap: 12px;
+      padding: 10px 16px;
+      background: linear-gradient(90deg, #0a0a12, #12121c);
+      border-bottom: 1px solid var(--panel-border);
+      clip-path: polygon(0 0, 100% 0, 98% 100%, 0 100%);
+    }
+    .rank-label, .challenge-label, .combo-label { font-size: 9px; letter-spacing: .15em; color: var(--dim); }
+    .rank-value { color: var(--cyan); font-weight: 700; font-size: 14px; }
+    .xp-track { height: 4px; background: #1a1a28; margin: 6px 0; border-radius: 2px; overflow: hidden; }
+    .xp-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--magenta), var(--cyan)); box-shadow: 0 0 8px var(--cyan); transition: width .4s; }
+    .xp-text { font-size: 10px; color: var(--green); }
+    .challenge-zone { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .challenge-text { flex: 1; color: var(--text); font-size: 13px; }
+    .combo-value { font-size: 28px; font-weight: 800; color: var(--magenta); text-shadow: 0 0 12px var(--magenta); }
+    .combo-value.pulse { transform: scale(1.08); transition: transform .1s; }
+
+    .app-wrap { max-width: 1200px; margin: 0 auto; padding: 16px; transition: filter .3s; }
+    .app-wrap.overclock { filter: drop-shadow(0 0 20px var(--cyan)) brightness(1.08); }
+    .app-wrap.overclock .panel { border-color: var(--green); box-shadow: 0 0 24px rgba(57,255,20,.25); }
+
+    .synth-header { text-align: center; margin-bottom: 16px; }
+    .synth-header h1 { font-size: clamp(1.4rem, 4vw, 2rem); letter-spacing: .08em; }
+    .synth-header h1 span { color: var(--cyan); text-shadow: 0 0 20px var(--cyan); }
+    .subtitle { font-size: 11px; color: var(--dim); letter-spacing: .2em; margin-top: 4px; }
+
+    .visualizer-wrap {
+      position: relative;
+      border: 1px solid var(--panel-border);
+      background: #050508;
+      margin-bottom: 16px;
+      clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+      box-shadow: inset 0 0 40px rgba(0,243,255,.05);
+    }
+  #visCanvas { display: block; width: 100%; height: 280px; }
+
+    .rack {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      padding: 14px;
+      clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    }
+    .panel-wide { grid-column: 1 / -1; }
+    .panel h2 { font-size: 11px; letter-spacing: .12em; color: var(--cyan); margin-bottom: 12px; border-bottom: 1px solid #1e1e30; padding-bottom: 6px; }
+    .panel h3 { font-size: 10px; color: var(--dim); margin: 8px 0 6px; }
+
+    .osc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .cyber-select, .cyber-input {
+      width: 100%; background: #0a0a12; border: 1px solid #2a2a40; color: var(--cyan);
+      padding: 8px; margin-bottom: 8px; font-size: 11px; clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+    }
+    .control-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; font-size: 10px; }
+    .ctrl-label { min-width: 70px; color: var(--dim); letter-spacing: .08em; }
+    .cyber-slider { flex: 1; accent-color: var(--cyan); height: 4px; }
+
+    .knob-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .knob { width: 72px; text-align: center; cursor: ns-resize; touch-action: none; user-select: none; }
+    .knob-lg { width: 88px; }
+    .knob svg { width: 100%; height: auto; display: block; }
+    .knob-track { fill: none; stroke: #222; stroke-width: 3; }
+    .knob-value { fill: none; stroke: var(--cyan); stroke-width: 3; stroke-linecap: round; transform: rotate(-135deg); transform-origin: center; filter: drop-shadow(0 0 4px var(--cyan)); }
+    .knob-pointer { stroke: var(--green); stroke-width: 2; }
+    .knob-label { display: block; font-size: 8px; letter-spacing: .1em; color: var(--dim); margin-top: 4px; }
+    .knob-readout { font-size: 11px; color: var(--cyan); }
+
+    .filter-viz { margin-bottom: 10px; }
+    .filter-bar { height: 8px; background: linear-gradient(90deg, #1a1030, #3040a0, var(--cyan)); border-radius: 2px; position: relative; }
+    .filter-cutoff-marker { position: absolute; top: -4px; width: 4px; height: 16px; background: var(--green); box-shadow: 0 0 8px var(--cyan); left: 40%; }
+    .filter-readout { font-size: 10px; color: var(--dim); margin-top: 4px; display: block; }
+
+    .adsr-grid, .fx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .adsr-sliders { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .adsr-sliders label { font-size: 9px; display: flex; flex-direction: column; gap: 4px; color: var(--dim); }
+    .adsr-sliders input { width: 100%; accent-color: var(--magenta); }
+
+    .route-toggle { display: flex; gap: 6px; margin: 8px 0; }
+    .route-btn {
+      flex: 1; padding: 8px; background: #101018; border: 1px solid #2a2a40; color: var(--dim);
+      font-size: 10px; cursor: pointer;
+    }
+    .route-btn.active { border-color: var(--magenta); color: var(--magenta); box-shadow: 0 0 10px rgba(255,0,85,.3); }
+
+    .preset-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .preset-btn, .btn-mini {
+      background: linear-gradient(180deg, #151520, #0a0a10);
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      padding: 10px 14px;
+      font-size: 10px;
+      letter-spacing: .08em;
+      cursor: pointer;
+      clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+      transition: box-shadow .2s, transform .1s;
+    }
+    .preset-btn:hover, .btn-mini:hover { box-shadow: 0 0 16px rgba(0,243,255,.4); transform: translateY(-1px); }
+    .preset-btn:active { transform: translateY(0); }
+
+    .octave-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 11px; }
+    .midi-status { color: var(--dim); font-size: 10px; margin-left: auto; }
+
+    .keyboard {
+      position: relative; display: flex; height: 120px; gap: 2px; padding: 8px 0 0;
+    }
+    .key {
+      position: relative; border: none; cursor: pointer; border-radius: 0 0 4px 4px;
+      transition: background .05s, box-shadow .1s;
+    }
+    .key.white {
+      flex: 1; background: linear-gradient(180deg, #e8f4ff 0%, #b8c8d8 100%);
+      border: 1px solid #8090a0; min-width: 0;
+    }
+    .key.white.active {
+      background: linear-gradient(180deg, var(--cyan) 0%, #0088aa 100%);
+      box-shadow: 0 0 20px var(--cyan);
+    }
+    .key.black {
+      position: absolute; width: 28px; height: 68px; z-index: 2;
+      background: linear-gradient(180deg, #2a2a38, #0a0a10);
+      border: 1px solid var(--magenta);
+    }
+    .key.black.active { background: linear-gradient(180deg, var(--magenta), #880033); box-shadow: 0 0 16px var(--magenta); }
+    .key-label { font-size: 9px; color: #304050; position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); pointer-events: none; }
+    .key.active .key-label { color: #fff; }
+
+    .key-hint { font-size: 10px; color: var(--dim); margin-top: 8px; text-align: center; }
+
+    .key-laser {
+      position: fixed; width: 3px; height: 60px;
+      background: linear-gradient(180deg, var(--cyan), transparent);
+      pointer-events: none; z-index: 10000;
+      animation: laser-rise .6s ease-out forwards;
+    }
+    @keyframes laser-rise {
+      from { opacity: 1; transform: translateY(0) scaleY(1); }
+      to { opacity: 0; transform: translateY(-50px) scaleY(1.5); }
+    }
+
+    .particle-layer { position: fixed; inset: 0; pointer-events: none; z-index: 9999; }
+
+    @media (max-width: 900px) {
+      .game-bar { grid-template-columns: 1fr; }
+      .rack { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="scanline" aria-hidden="true"></div>
+
+  <header class="game-bar" id="gameBar">
+    <div class="rank-block">
+      <span class="rank-label">CYBER-RANK</span>
+      <span class="rank-value" id="rankLevel">INITIATE</span>
+      <div class="xp-track"><div class="xp-fill" id="xpFill"></div></div>
+      <span class="xp-text" id="xpText">0 XP</span>
+    </div>
+    <div class="challenge-zone">
+      <span class="challenge-label">// ACTIVE VECTOR</span>
+      <span class="challenge-text" id="challengeText">Initialize audio core…</span>
+      <button type="button" class="btn-mini" id="newChallengeBtn">REROLL</button>
+    </div>
+    <div class="combo-zone">
+      <span class="combo-label">COMBO</span>
+      <span class="combo-value" id="comboCount">0</span>
+    </div>
+  </header>
+
+  <div class="app-wrap" id="appWrap">
+    <header class="synth-header">
+      <h1><span>NEON</span> CYBER // SYNTH LAB</h1>
+      <p class="subtitle">WEB AUDIO · RACK v9.4 · ZERO-DEP NODE GRAPH</p>
+    </header>
+
+    <div class="visualizer-wrap">
+      <canvas id="visCanvas" width="960" height="280"></canvas>
+    </div>
+
+    <div class="rack">
+      <section class="panel">
+        <h2>// OSC MATRIX</h2>
+        <div class="osc-grid">
+          <div class="osc-block">
+            <h3>OSC 1</h3>
+            <select class="cyber-select" data-param="wave1">
+              <option value="sine">SINE</option>
+              <option value="square">SQUARE</option>
+              <option value="sawtooth" selected>SAW</option>
+              <option value="triangle">TRI</option>
+            </select>
+            <div class="knob-row">
+              <div class="knob" data-knob data-min="-50" data-max="50" data-value="0" data-step="1" data-param="detune1" data-unit="¢">
+                <svg viewBox="0 0 52 52"><circle class="knob-track" cx="26" cy="26" r="22"/><circle class="knob-value" cx="26" cy="26" r="22"/><line class="knob-pointer" x1="26" y1="26" x2="26" y2="10"/></svg>
+                <span class="knob-label">DETUNE</span>
+                <span class="knob-readout" data-readout>0¢</span>
+              </div>
+              <div class="knob" data-knob data-min="-2" data-max="2" data-value="0" data-step="1" data-param="octave1">
+                <svg viewBox="0 0 52 52"><circle class="knob-track" cx="26" cy="26" r="22"/><circle class="knob-value" cx="26" cy="26" r="22"/><line class="knob-pointer" x1="26" y1="26" x2="26" y2="10"/></svg>
+                <span class="knob-label">OCTAVE</span>
+                <span class="knob-readout" data-readout>0</span>
+              </div>
+            </div>
+          </div>
+          <div class="osc-block">
+            <h3>OSC 2</h3>
+            <select class="cyber-select" data-param="wave2">
+              <option value="sine">SINE</option>
+              <option value="square" selected>SQUARE</option>
+              <option value="sawtooth">SAW</option>
+              <option value="triangle">TRI</option>
+            </select>
+            <div class="knob-row">
+              <div class="knob" data-knob data-min="-50" data-max="50" data-value="7" data-step="1" data-param="detune2" data-unit="¢">
+                <svg viewBox="0 0 52 52"><circle class="knob-track" cx="26" cy="26" r="22"/><circle class="knob-value" cx="26" cy="26" r="22"/><line class="knob-pointer" x1="26" y1="26" x2="26" y2="10"/></svg>
+                <span class="knob-label">DETUNE</span>
+                <span class="knob-readout" data-readout>7¢</span>
+              </div>
+              <div class="knob" data-knob data-min="-2" data-max="2" data-value="0" data-step="1" data-param="octave2">
+                <svg viewBox="0 0 52 52"><circle class="knob-track" cx="26" cy="26" r="22"/><circle class="knob-value" cx="26" cy="26" r="22"/><line class="knob-pointer" x1="26" y1="26" x2="26" y2="10"/></svg>
+                <span class="knob-label">OCTAVE</span>
+                <span class="knob-readout" data-readout>0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="control-row"><span class="ctrl-label">OSC MIX</span><input type="range" class="cyber-slider" data-param="oscMix" min="0" max="100" value="65" /></div>
+        <div class="control-row"><span class="ctrl-label">SUB GAIN</span><input type="range" class="cyber-slider" data-param="subGain" min="0" max="100" value="35" /></div>
+      </section>
+
+      <section class="panel">
+        <h2>// RESONANT LPF</h2>
+        <div class="filter-viz">
+          <div class="filter-bar"><div class="filter-cutoff-marker" id="filterMarker"></div></div>
+          <span class="filter-readout" id="filterReadout">1.2 kHz · Q 8.0</span>
+        </div>
+        <div class="knob-row">
+          <div class="knob knob-lg" data-knob data-min="20" data-max="20000" data-value="1200" data-step="1" data-param="cutoff" data-scale="log" data-unit="Hz">
+            <svg viewBox="0 0 64 64"><circle class="knob-track" cx="32" cy="32" r="28"/><circle class="knob-value" cx="32" cy="32" r="28"/><line class="knob-pointer" x1="32" y1="32" x2="32" y2="8"/></svg>
+            <span class="knob-label">CUTOFF</span>
+            <span class="knob-readout" data-readout>1.2k</span>
+          </div>
+          <div class="knob knob-lg" data-knob data-min="0.1" data-max="24" data-value="8" data-step="0.1" data-param="resonance">
+            <svg viewBox="0 0 64 64"><circle class="knob-track" cx="32" cy="32" r="28"/><circle class="knob-value" cx="32" cy="32" r="28"/><line class="knob-pointer" x1="32" y1="32" x2="32" y2="8"/></svg>
+            <span class="knob-label">RESONANCE</span>
+            <span class="knob-readout" data-readout>8.0</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel panel-wide">
+        <h2>// DUAL ADSR</h2>
+        <div class="adsr-grid">
+          <div>
+            <h3>AMP ENV</h3>
+            <div class="adsr-sliders">
+              <label>A<input type="range" data-param="ampA" min="0.001" max="2" step="0.001" value="0.02" /></label>
+              <label>D<input type="range" data-param="ampD" min="0.01" max="2" step="0.01" value="0.3" /></label>
+              <label>S<input type="range" data-param="ampS" min="0" max="1" step="0.01" value="0.7" /></label>
+              <label>R<input type="range" data-param="ampR" min="0.01" max="3" step="0.01" value="0.4" /></label>
+            </div>
+          </div>
+          <div>
+            <h3>FILT ENV</h3>
+            <div class="adsr-sliders">
+              <label>A<input type="range" data-param="filtA" min="0.001" max="2" step="0.001" value="0.05" /></label>
+              <label>D<input type="range" data-param="filtD" min="0.01" max="2" step="0.01" value="0.4" /></label>
+              <label>S<input type="range" data-param="filtS" min="0" max="1" step="0.01" value="0.3" /></label>
+              <label>R<input type="range" data-param="filtR" min="0.01" max="3" step="0.01" value="0.5" /></label>
+            </div>
+            <div class="control-row"><span class="ctrl-label">ENV DEPTH</span><input type="range" class="cyber-slider" data-param="filtEnvAmt" min="0" max="100" value="60" /></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>// TEMPO LFO</h2>
+        <div class="control-row"><span class="ctrl-label">BPM</span><input type="number" class="cyber-input" id="bpmInput" min="40" max="220" value="128" /></div>
+        <select class="cyber-select" data-param="lfoDiv">
+          <option value="1">1/1</option><option value="0.5">1/2</option><option value="0.25" selected>1/4</option>
+          <option value="0.125">1/8</option><option value="0.0625">1/16</option>
+        </select>
+        <select class="cyber-select" data-param="lfoWave">
+          <option value="sine" selected>SINE</option><option value="square">SQUARE</option>
+          <option value="sawtooth">SAW</option><option value="triangle">TRI</option>
+        </select>
+        <div class="route-toggle">
+          <button type="button" class="route-btn active" data-route="filter">→ FILTER</button>
+          <button type="button" class="route-btn" data-route="pitch">→ PITCH</button>
+        </div>
+        <div class="control-row"><span class="ctrl-label">LFO DEPTH</span><input type="range" class="cyber-slider" data-param="lfoDepth" min="0" max="100" value="40" /></div>
+      </section>
+
+      <section class="panel panel-wide">
+        <h2>// CYBER-FX RACK</h2>
+        <div class="fx-grid">
+          <div>
+            <h3>PING-PONG DELAY</h3>
+            <div class="control-row"><span class="ctrl-label">TIME</span><input type="range" data-param="delayTime" min="0.05" max="1" step="0.01" value="0.35" class="cyber-slider" /></div>
+            <div class="control-row"><span class="ctrl-label">FDBK</span><input type="range" data-param="delayFb" min="0" max="0.92" step="0.01" value="0.45" class="cyber-slider" /></div>
+            <div class="control-row"><span class="ctrl-label">MIX</span><input type="range" data-param="delayMix" min="0" max="1" step="0.01" value="0.25" class="cyber-slider" /></div>
+          </div>
+          <div>
+            <h3>ALGO REVERB</h3>
+            <div class="control-row"><span class="ctrl-label">SEND</span><input type="range" data-param="reverbMix" min="0" max="1" step="0.01" value="0.35" class="cyber-slider" /></div>
+            <div class="control-row"><span class="ctrl-label">SIZE</span><input type="range" data-param="reverbSize" min="0.2" max="3" step="0.05" value="1.2" class="cyber-slider" /></div>
+          </div>
+          <div>
+            <h3>DISTORTION</h3>
+            <div class="knob-row">
+              <div class="knob knob-lg" data-knob data-min="0" data-max="100" data-value="15" data-step="1" data-param="drive" data-unit="%">
+                <svg viewBox="0 0 64 64"><circle class="knob-track" cx="32" cy="32" r="28"/><circle class="knob-value" cx="32" cy="32" r="28"/><line class="knob-pointer" x1="32" y1="32" x2="32" y2="8"/></svg>
+                <span class="knob-label">DRIVE</span>
+                <span class="knob-readout" data-readout>15%</span>
+              </div>
+            </div>
+            <div class="control-row"><span class="ctrl-label">MASTER</span><input type="range" data-param="master" min="0" max="1" step="0.01" value="0.75" class="cyber-slider" /></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel panel-wide keyboard-panel">
+        <h2>// PLAYBACK INTERFACE</h2>
+        <div class="preset-row">
+          <button type="button" class="preset-btn" data-preset="blade">BLADE BASS</button>
+          <button type="button" class="preset-btn" data-preset="neon">NEON ARP</button>
+          <button type="button" class="preset-btn" data-preset="glitch">GLITCH LEAD</button>
+          <button type="button" class="preset-btn" data-preset="void">VOID PAD</button>
+        </div>
+        <div class="octave-row">
+          <button type="button" class="btn-mini" id="octDown">OCT −</button>
+          <span id="octaveDisplay">BASE OCT 4</span>
+          <button type="button" class="btn-mini" id="octUp">OCT +</button>
+          <span class="midi-status" id="midiStatus">MIDI: scanning…</span>
+          <button type="button" class="btn-mini" id="audioInitBtn">POWER CORE</button>
+        </div>
+        <div class="keyboard" id="keyboard"></div>
+        <p class="key-hint">Keys: A–L whites · W E T Y U blacks · Click POWER CORE or play to unlock audio</p>
+      </section>
+    </div>
+  </div>
+
+  <canvas id="particleCanvas" class="particle-layer"></canvas>
+<script>
+(function () {
+  'use strict';
+
+  const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const KEY_WHITE = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'];
+  const KEY_BLACK = { w: 0, e: 1, t: 3, y: 4, u: 6 };
+
+  const RANKS = [
+    { min: 0, name: 'INITIATE' },
+    { min: 100, name: 'SCRIPT KIDDIE' },
+    { min: 250, name: 'NETRUNNER' },
+    { min: 500, name: 'GHOST HACKER' },
+    { min: 900, name: 'SYNDICATE ACE' },
+    { min: 1500, name: 'NEON OVERLORD' },
+  ];
+
+  const CHALLENGES = [
+    { id: 'combo12', text: 'Hit a 12-note combo', check: (s) => s.comboMax >= 12 },
+    { id: 'bass300', text: 'Dial resonant bass under 300 Hz (cutoff + high Q)', check: (s) => s.params.cutoff < 300 && s.params.resonance > 10 },
+    { id: 'lfo8', text: 'Trigger LFO wobble at 1/8 speed', check: (s) => s.params.lfoDiv === 0.125 && s.params.lfoDepth > 25 },
+    { id: 'notes8', text: 'Play 8 unique notes in 5 seconds', check: (s) => s.uniqueBurst >= 8 },
+    { id: 'arp', text: 'Fire 6 notes within 1.5s (arp burst)', check: (s) => s.burst6 },
+    { id: 'drive', text: 'Crank distortion drive above 50%', check: (s) => s.params.drive > 50 },
+    { id: 'reverb', text: 'Reverb send above 60%', check: (s) => s.params.reverbMix > 0.6 },
+    { id: 'saw', text: 'Both oscillators on sawtooth', check: (s) => s.params.wave1 === 'sawtooth' && s.params.wave2 === 'sawtooth' },
+  ];
+
+  const PRESETS = {
+    blade: {
+      wave1: 'sawtooth', wave2: 'square', detune1: -5, detune2: 7, octave1: -1, octave2: -1,
+      oscMix: 80, subGain: 70, cutoff: 180, resonance: 14, drive: 35,
+      ampA: 0.01, ampD: 0.25, ampS: 0.85, ampR: 0.2,
+      filtA: 0.02, filtD: 0.35, filtS: 0.2, filtR: 0.3, filtEnvAmt: 80,
+      lfoDiv: 0.125, lfoDepth: 55, lfoWave: 'square', delayMix: 0.1, reverbMix: 0.15,
+    },
+    neon: {
+      wave1: 'square', wave2: 'square', detune1: 0, detune2: 12, octave1: 0, octave2: 1,
+      oscMix: 55, subGain: 10, cutoff: 4200, resonance: 6, drive: 12,
+      ampA: 0.005, ampD: 0.15, ampS: 0.4, ampR: 0.15,
+      filtA: 0.01, filtD: 0.2, filtS: 0.5, filtR: 0.2, filtEnvAmt: 45,
+      lfoDiv: 0.25, lfoDepth: 70, lfoWave: 'sine', delayTime: 0.28, delayMix: 0.4, delayFb: 0.55,
+    },
+    glitch: {
+      wave1: 'sawtooth', wave2: 'triangle', detune1: 25, detune2: -18, octave1: 1, octave2: 0,
+      oscMix: 70, subGain: 5, cutoff: 6800, resonance: 18, drive: 72,
+      ampA: 0.001, ampD: 0.12, ampS: 0.55, ampR: 0.08,
+      filtA: 0.003, filtD: 0.08, filtS: 0.1, filtR: 0.1, filtEnvAmt: 90,
+      lfoDiv: 0.0625, lfoDepth: 85, lfoWave: 'square', delayMix: 0.2, reverbMix: 0.25,
+    },
+    void: {
+      wave1: 'sine', wave2: 'triangle', detune1: 3, detune2: -4, octave1: 0, octave2: -1,
+      oscMix: 50, subGain: 25, cutoff: 900, resonance: 4, drive: 5,
+      ampA: 0.8, ampD: 0.6, ampS: 0.9, ampR: 1.8,
+      filtA: 0.4, filtD: 0.8, filtS: 0.7, filtR: 1.2, filtEnvAmt: 35,
+      lfoDiv: 0.5, lfoDepth: 20, lfoWave: 'sine', delayMix: 0.15, reverbMix: 0.75, reverbSize: 2.2,
+    },
+  };
+
+  const state = {
+    params: {
+      wave1: 'sawtooth', wave2: 'square', detune1: 0, detune2: 7, octave1: 0, octave2: 0,
+      oscMix: 65, subGain: 35, cutoff: 1200, resonance: 8, drive: 15,
+      ampA: 0.02, ampD: 0.3, ampS: 0.7, ampR: 0.4,
+      filtA: 0.05, filtD: 0.4, filtS: 0.3, filtR: 0.5, filtEnvAmt: 60,
+      lfoDiv: 0.25, lfoWave: 'sine', lfoDepth: 40, lfoRoute: 'filter',
+      delayTime: 0.35, delayFb: 0.45, delayMix: 0.25,
+      reverbMix: 0.35, reverbSize: 1.2, master: 0.75,
+    },
+    bpm: 128,
+    baseOctave: 4,
+    combo: 0,
+    comboMax: 0,
+    xp: 0,
+    overclockUntil: 0,
+    challenge: null,
+    gameStats: { uniqueBurst: 0, burst6: false, noteTimes: [], uniqueNotes: new Set() },
+    midiInputs: [],
+    activeNotes: new Map(),
+    pressedKeys: new Set(),
+  };
+
+  let audioCtx = null;
+  let masterBus = null;
+  let analyser = null;
+  let filterNode = null;
+  let distortionNode = null;
+  let dryGain = null;
+  let wetDelayGain = null;
+  let delayL = null;
+  let delayR = null;
+  let delayFbL = null;
+  let delayFbR = null;
+  let panL = null;
+  let panR = null;
+  let delayMerge = null;
+  let reverbConvolver = null;
+  let reverbGain = null;
+  let compressor = null;
+  let lfo = null;
+  let lfoDepthGain = null;
+  let lfoPitchGain = null;
+  const MAX_VOICES = 10;
+  let voiceBus = null;
+  let voicePool = [];
+
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+
+  function freqFromMidi(midi) {
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
+
+  function midiFromNote(note, octave) {
+    const idx = NOTE_NAMES.indexOf(note.replace(/\d/g, ''));
+    return (octave + 1) * 12 + idx;
+  }
+
+  function formatFreq(f) {
+    if (f >= 1000) return (f / 1000).toFixed(f >= 10000 ? 0 : 1) + 'k';
+    return Math.round(f) + '';
+  }
+
+  function makeDistCurve(amount) {
+    const n = 44100;
+    const curve = new Float32Array(n);
+    const k = Math.max(0, amount) * 0.015;
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / n - 1;
+      curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
+    }
+    return curve;
+  }
+
+  function buildImpulse(ctx, seconds, decay) {
+    const len = ctx.sampleRate * seconds;
+    const impulse = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = impulse.getChannelData(ch);
+      for (let i = 0; i < len; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+      }
+    }
+    return impulse;
+  }
+
+  function initAudio() {
+    if (audioCtx) return audioCtx.resume();
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    masterBus = audioCtx.createGain();
+    masterBus.gain.value = state.params.master;
+
+    compressor = audioCtx.createDynamicsCompressor();
+    compressor.threshold.value = -12;
+    compressor.ratio.value = 4;
+
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.75;
+
+    distortionNode = audioCtx.createWaveShaper();
+    distortionNode.curve = makeDistCurve(state.params.drive);
+    distortionNode.oversample = '4x';
+
+    voiceBus = audioCtx.createGain();
+    voiceBus.gain.value = 1;
+
+    filterNode = audioCtx.createBiquadFilter();
+    filterNode.type = 'lowpass';
+    filterNode.frequency.value = state.params.cutoff;
+    filterNode.Q.value = state.params.resonance;
+
+    voiceBus.connect(filterNode);
+    filterNode.connect(distortionNode);
+
+    dryGain = audioCtx.createGain();
+    dryGain.gain.value = 1;
+
+    wetDelayGain = audioCtx.createGain();
+    wetDelayGain.gain.value = state.params.delayMix;
+
+    delayL = audioCtx.createDelay(2);
+    delayR = audioCtx.createDelay(2);
+    delayL.delayTime.value = state.params.delayTime;
+    delayR.delayTime.value = state.params.delayTime * 1.01;
+
+    delayFbL = audioCtx.createGain();
+    delayFbR = audioCtx.createGain();
+    delayFbL.gain.value = state.params.delayFb;
+    delayFbR.gain.value = state.params.delayFb * 0.92;
+
+    panL = audioCtx.createStereoPanner();
+    panR = audioCtx.createStereoPanner();
+    panL.pan.value = -0.75;
+    panR.pan.value = 0.75;
+
+    delayMerge = audioCtx.createGain();
+
+    reverbConvolver = audioCtx.createConvolver();
+    reverbConvolver.buffer = buildImpulse(audioCtx, 2.2 * state.params.reverbSize, 2.5);
+    reverbGain = audioCtx.createGain();
+    reverbGain.gain.value = state.params.reverbMix;
+
+    lfo = audioCtx.createOscillator();
+    lfoDepthGain = audioCtx.createGain();
+    lfoPitchGain = audioCtx.createGain();
+    lfo.type = state.params.lfoWave;
+    updateLfoRate();
+    lfoDepthGain.gain.value = state.params.lfoDepth * 80;
+    lfoPitchGain.gain.value = 0;
+    lfo.connect(lfoDepthGain);
+    lfoDepthGain.connect(filterNode.frequency);
+    lfo.connect(lfoPitchGain);
+    lfo.start();
+
+
+    distortionNode.connect(dryGain);
+    dryGain.connect(compressor);
+
+    distortionNode.connect(wetDelayGain);
+    wetDelayGain.connect(delayL);
+    wetDelayGain.connect(delayR);
+    delayL.connect(panL);
+    delayR.connect(panR);
+    delayL.connect(delayFbL);
+    delayR.connect(delayFbR);
+    delayFbL.connect(delayL);
+    delayFbR.connect(delayR);
+    panL.connect(delayMerge);
+    panR.connect(delayMerge);
+    delayMerge.connect(compressor);
+
+    distortionNode.connect(reverbConvolver);
+    reverbConvolver.connect(reverbGain);
+    reverbGain.connect(compressor);
+
+    compressor.connect(analyser);
+    analyser.connect(masterBus);
+    masterBus.connect(audioCtx.destination);
+
+    for (let i = 0; i < MAX_VOICES; i++) {
+      voicePool.push(createVoiceTemplate());
+    }
+
+    return audioCtx.resume();
+  }
+
+  function createVoiceTemplate() {
+    return { busy: false, osc1: null, osc2: null, sub: null, mix: null, filter: null, gain: null, midi: null };
+  }
+
+  function allocVoice() {
+    return voicePool.find((v) => !v.busy) || null;
+  }
+
+  function oscFreq(midi, detune, octave) {
+    const base = freqFromMidi(midi + octave * 12);
+    return base * Math.pow(2, detune / 1200);
+  }
+
+  function triggerNote(midi, velocity = 0.9) {
+    if (!audioCtx) return;
+    const id = 'm' + midi;
+    if (state.activeNotes.has(id)) releaseNote(midi, true);
+
+    const voice = allocVoice();
+    if (!voice) return;
+
+    const t = audioCtx.currentTime;
+    const p = state.params;
+
+    voice.busy = true;
+    voice.midi = midi;
+
+    voice.osc1 = audioCtx.createOscillator();
+    voice.osc2 = audioCtx.createOscillator();
+    voice.sub = audioCtx.createOscillator();
+    voice.mix = audioCtx.createGain();
+    voice.filter = audioCtx.createBiquadFilter();
+    voice.gain = audioCtx.createGain();
+
+    voice.osc1.type = p.wave1;
+    voice.osc2.type = p.wave2;
+    voice.sub.type = 'sine';
+
+    const f1 = oscFreq(midi, p.detune1, p.octave1);
+    const f2 = oscFreq(midi, p.detune2, p.octave2);
+    const fSub = freqFromMidi(midi) / 2;
+
+    voice.osc1.frequency.value = f1;
+    voice.osc2.frequency.value = f2;
+    voice.sub.frequency.value = fSub;
+
+    const mix1 = (1 - p.oscMix / 100) * 0.45;
+    const mix2 = (p.oscMix / 100) * 0.45;
+    const subLvl = (p.subGain / 100) * 0.5;
+
+    const g1 = audioCtx.createGain();
+    const g2 = audioCtx.createGain();
+    const gSub = audioCtx.createGain();
+    g1.gain.value = mix1 * velocity;
+    g2.gain.value = mix2 * velocity;
+    gSub.gain.value = subLvl * velocity;
+
+    voice.osc1.connect(g1);
+    voice.osc2.connect(g2);
+    voice.sub.connect(gSub);
+    g1.connect(voice.mix);
+    g2.connect(voice.mix);
+    gSub.connect(voice.mix);
+
+    voice.filter.type = 'lowpass';
+    voice.filter.frequency.value = p.cutoff;
+    voice.filter.Q.value = p.resonance;
+
+    voice.mix.connect(voice.filter);
+    voice.filter.connect(voice.gain);
+    voice.gain.connect(voiceBus);
+
+    if (p.lfoRoute === 'pitch') {
+      lfoPitchGain.connect(voice.osc1.detune);
+      lfoPitchGain.connect(voice.osc2.detune);
+      voice._pitchLfo = true;
+    }
+
+    const envAmt = p.filtEnvAmt / 100;
+    const peakFilt = Math.min(20000, p.cutoff + p.cutoff * envAmt * 4);
+
+    voice.gain.gain.setValueAtTime(0, t);
+    voice.gain.gain.linearRampToValueAtTime(velocity * 0.35, t + p.ampA);
+    voice.gain.gain.linearRampToValueAtTime(velocity * 0.35 * p.ampS, t + p.ampA + p.ampD);
+    voice.filter.frequency.setValueAtTime(p.cutoff, t);
+    voice.filter.frequency.linearRampToValueAtTime(peakFilt, t + p.filtA);
+    voice.filter.frequency.linearRampToValueAtTime(p.cutoff + (peakFilt - p.cutoff) * p.filtS, t + p.filtA + p.filtD);
+
+    voice.osc1.start(t);
+    voice.osc2.start(t);
+    voice.sub.start(t);
+
+    voice._g1 = g1;
+    voice._g2 = g2;
+    voice._gSub = gSub;
+    voice._started = t;
+
+    state.activeNotes.set(id, voice);
+    onNotePlayed(midi);
+    highlightKey(midi, true);
+  }
+
+  function releaseNote(midi, retrigger) {
+    const id = 'm' + midi;
+    const voice = state.activeNotes.get(id);
+    if (!voice || !audioCtx) return;
+
+    const t = audioCtx.currentTime;
+    const p = state.params;
+
+    voice.gain.gain.cancelScheduledValues(t);
+    voice.gain.gain.setValueAtTime(voice.gain.gain.value, t);
+    voice.gain.gain.linearRampToValueAtTime(0, t + p.ampR);
+
+    voice.filter.frequency.cancelScheduledValues(t);
+    voice.filter.frequency.setValueAtTime(voice.filter.frequency.value, t);
+    voice.filter.frequency.linearRampToValueAtTime(p.cutoff, t + p.filtR);
+
+    const stopAt = t + Math.max(p.ampR, p.filtR) + 0.05;
+    ['osc1', 'osc2', 'sub'].forEach((k) => {
+      try { voice[k].stop(stopAt); } catch (_) {}
+    });
+
+    setTimeout(() => {
+      try {
+        voice.osc1?.disconnect();
+        voice.osc2?.disconnect();
+        voice.sub?.disconnect();
+        voice.mix?.disconnect();
+        voice.filter?.disconnect();
+        voice.gain?.disconnect();
+        voice._g1?.disconnect();
+        voice._g2?.disconnect();
+        voice._gSub?.disconnect();
+        if (voice._pitchLfo) {
+          try {
+            lfoPitchGain.disconnect(voice.osc1.detune);
+            lfoPitchGain.disconnect(voice.osc2.detune);
+          } catch (_) {}
+        }
+      } catch (_) {}
+      voice.busy = false;
+      voice.midi = null;
+    }, (Math.max(p.ampR, p.filtR) + 0.1) * 1000);
+
+    if (!retrigger) {
+      state.activeNotes.delete(id);
+      highlightKey(midi, false);
+      resetComboIfNeeded();
+    } else {
+      state.activeNotes.delete(id);
+    }
+  }
+
+  function updateLfoRate() {
+    if (!lfo || !audioCtx) return;
+    const beat = 60 / state.bpm;
+    lfo.frequency.value = 1 / (beat / state.params.lfoDiv);
+  }
+
+  function applyParamsToEngine() {
+    if (!audioCtx) return;
+    const p = state.params;
+    filterNode.frequency.value = p.cutoff;
+    filterNode.Q.value = p.resonance;
+    distortionNode.curve = makeDistCurve(p.drive);
+    masterBus.gain.value = p.master;
+    wetDelayGain.gain.value = p.delayMix;
+    delayL.delayTime.value = p.delayTime;
+    delayR.delayTime.value = p.delayTime * 1.01;
+    delayFbL.gain.value = p.delayFb;
+    delayFbR.gain.value = p.delayFb * 0.92;
+    reverbGain.gain.value = p.reverbMix;
+    reverbConvolver.buffer = buildImpulse(audioCtx, 2.2 * p.reverbSize, 2.5);
+    lfo.type = p.lfoWave;
+    lfoDepthGain.gain.value = p.lfoRoute === 'filter' ? p.lfoDepth * 80 : 0;
+    lfoPitchGain.gain.value = p.lfoRoute === 'pitch' ? p.lfoDepth * 18 : 0;
+    updateLfoRate();
+    updateFilterViz();
+  }
+
+  function setParam(name, value) {
+    if (name === 'wave1' || name === 'wave2' || name === 'lfoWave' || name === 'lfoRoute') {
+      state.params[name] = value;
+    } else if (name === 'lfoDiv') {
+      state.params.lfoDiv = parseFloat(value);
+    } else {
+      state.params[name] = typeof value === 'string' ? parseFloat(value) : value;
+    }
+    applyParamsToEngine();
+    syncUI();
+    checkChallenge();
+  }
+
+  // UI knobs
+  function knobValueToAngle(norm) {
+    return -135 + norm * 270;
+  }
+
+  function updateKnobEl(el) {
+    const min = parseFloat(el.dataset.min);
+    const max = parseFloat(el.dataset.max);
+    let val = parseFloat(el.dataset.value);
+    const scale = el.dataset.scale;
+    let norm;
+    if (scale === 'log') {
+      const lv = Math.log(min), hv = Math.log(max);
+      norm = (Math.log(Math.max(min, val)) - lv) / (hv - lv);
+    } else {
+      norm = (val - min) / (max - min);
+    }
+    norm = Math.max(0, Math.min(1, norm));
+    const circum = scale === 'log' ? 2 * Math.PI * 28 : 2 * Math.PI * (el.classList.contains('knob-lg') ? 28 : 22);
+    const arc = el.querySelector('.knob-value');
+    if (arc) {
+      arc.style.strokeDasharray = `${circum * norm} ${circum}`;
+    }
+    const ptr = el.querySelector('.knob-pointer');
+    if (ptr) {
+      const ang = knobValueToAngle(norm) * Math.PI / 180;
+      const r = el.classList.contains('knob-lg') ? 24 : 18;
+      const cx = el.classList.contains('knob-lg') ? 32 : 26;
+      const cy = cx;
+      ptr.setAttribute('x2', cx + Math.sin(ang) * r);
+      ptr.setAttribute('y2', cy - Math.cos(ang) * r);
+    }
+    const ro = el.querySelector('[data-readout]');
+    const unit = el.dataset.unit || '';
+    if (ro) {
+      if (el.dataset.param === 'cutoff') ro.textContent = formatFreq(val);
+      else if (unit === '¢') ro.textContent = Math.round(val) + '¢';
+      else if (unit === '%') ro.textContent = Math.round(val) + '%';
+      else if (unit === 'Hz') ro.textContent = formatFreq(val);
+      else ro.textContent = Number.isInteger(val) ? val : val.toFixed(1);
+    }
+  }
+
+  function initKnobs() {
+    $$('[data-knob]').forEach((el) => {
+      updateKnobEl(el);
+      let dragging = false;
+      let startY = 0;
+      let startVal = 0;
+      const onMove = (clientY) => {
+        const min = parseFloat(el.dataset.min);
+        const max = parseFloat(el.dataset.max);
+        const step = parseFloat(el.dataset.step) || 1;
+        const dy = startY - clientY;
+        const range = max - min;
+        let v = startVal + (dy / 120) * range;
+        v = Math.round(v / step) * step;
+        v = Math.max(min, Math.min(max, v));
+        el.dataset.value = v;
+        const param = el.dataset.param;
+        if (param) setParam(param, v);
+        else updateKnobEl(el);
+        updateKnobEl(el);
+      };
+      el.addEventListener('pointerdown', (e) => {
+        dragging = true;
+        startY = e.clientY;
+        startVal = parseFloat(el.dataset.value);
+        el.setPointerCapture(e.pointerId);
+      });
+      el.addEventListener('pointermove', (e) => {
+        if (dragging) onMove(e.clientY);
+      });
+      el.addEventListener('pointerup', () => { dragging = false; });
+    });
+  }
+
+  function syncUI() {
+    $$('[data-param]').forEach((el) => {
+      const key = el.dataset.param;
+      if (!(key in state.params)) return;
+      const v = state.params[key];
+      if (el.tagName === 'SELECT') el.value = String(v);
+      else if (el.type === 'range' || el.type === 'number') el.value = v;
+    });
+    $$('[data-knob]').forEach((el) => {
+      const key = el.dataset.param;
+      if (key && key in state.params) {
+        el.dataset.value = state.params[key];
+        updateKnobEl(el);
+      }
+    });
+    updateFilterViz();
+  }
+
+  function updateFilterViz() {
+    const p = state.params;
+    const marker = $('#filterMarker');
+    const readout = $('#filterReadout');
+    if (marker) {
+      const logPos = (Math.log(p.cutoff) - Math.log(20)) / (Math.log(20000) - Math.log(20));
+      marker.style.left = (logPos * 92 + 4) + '%';
+      marker.style.boxShadow = `0 0 ${8 + p.resonance}px var(--cyan)`;
+    }
+    if (readout) readout.textContent = formatFreq(p.cutoff) + ' Hz · Q ' + p.resonance.toFixed(1);
+  }
+
+  function bindControls() {
+    $$('.cyber-slider, .adsr-sliders input, [data-param]').forEach((el) => {
+      if (el.closest('[data-knob]')) return;
+      const ev = el.tagName === 'SELECT' ? 'change' : 'input';
+      el.addEventListener(ev, () => setParam(el.dataset.param, el.type === 'number' || el.type === 'range' ? parseFloat(el.value) : el.value));
+    });
+
+    $('#bpmInput')?.addEventListener('input', (e) => {
+      state.bpm = parseFloat(e.target.value) || 128;
+      updateLfoRate();
+    });
+
+    $$('.route-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        $$('.route-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        setParam('lfoRoute', btn.dataset.route);
+      });
+    });
+
+    $$('.preset-btn').forEach((btn) => {
+      btn.addEventListener('click', () => animatePreset(btn.dataset.preset));
+    });
+
+    $('#audioInitBtn')?.addEventListener('click', async () => {
+      await initAudio();
+      $('#audioInitBtn').textContent = 'CORE ONLINE';
+      rollChallenge();
+    });
+
+    $('#newChallengeBtn')?.addEventListener('click', rollChallenge);
+    $('#octDown')?.addEventListener('click', () => { state.baseOctave = Math.max(1, state.baseOctave - 1); updateOctaveDisplay(); buildKeyboard(); });
+    $('#octUp')?.addEventListener('click', () => { state.baseOctave = Math.min(6, state.baseOctave + 1); updateOctaveDisplay(); buildKeyboard(); });
+  }
+
+  function animatePreset(name) {
+    const target = PRESETS[name];
+    if (!target) return;
+    const start = { ...state.params };
+    const duration = 600;
+    const t0 = performance.now();
+    function frame(now) {
+      const t = Math.min(1, (now - t0) / duration);
+      const ease = 1 - Math.pow(1 - t, 3);
+      Object.keys(target).forEach((k) => {
+        const a = start[k] ?? state.params[k];
+        const b = target[k];
+        if (typeof b === 'string') state.params[k] = t < 1 ? a : b;
+        else state.params[k] = a + (b - a) * ease;
+      });
+      applyParamsToEngine();
+      syncUI();
+      if (t < 1) requestAnimationFrame(frame);
+      else checkChallenge();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // Keyboard UI
+  const whiteNotes = [0, 2, 4, 5, 7, 9, 11, 12, 14];
+  const whiteHasBlack = new Set([0, 2, 5, 7, 9]);
+
+  function buildKeyboard() {
+    const wrap = $('#keyboard');
+    wrap.innerHTML = '';
+    const oct = state.baseOctave;
+    whiteNotes.forEach((semi, i) => {
+      const note = NOTE_NAMES[semi % 12];
+      const midi = midiFromNote(note, oct + (semi >= 12 ? 1 : 0));
+      const key = document.createElement('button');
+      key.type = 'button';
+      key.className = 'key white';
+      key.dataset.midi = midi;
+      key.dataset.code = KEY_WHITE[i] || '';
+      key.innerHTML = `<span class="key-label">${note}</span>`;
+      key.addEventListener('pointerdown', (e) => { e.preventDefault(); ensureAudio(); triggerNote(midi); key.classList.add('active'); });
+      key.addEventListener('pointerup', () => { releaseNote(midi); key.classList.remove('active'); });
+      key.addEventListener('pointerleave', () => { if (!state.pressedKeys.has(KEY_WHITE[i])) return; });
+      wrap.appendChild(key);
+
+      if (whiteHasBlack.has(semi % 12) && i < KEY_WHITE.length - 1) {
+        const bSemi = semi + 1;
+        const bn = NOTE_NAMES[bSemi % 12];
+        const bMidi = midiFromNote(bn, oct + (bSemi >= 12 ? 1 : 0));
+        const bk = Object.entries(KEY_BLACK).find(([, off]) => [1, 3, 6, 8, 10][off] === bSemi % 12);
+        const code = bk ? bk[0] : '';
+        const black = document.createElement('button');
+        black.type = 'button';
+        black.className = 'key black';
+        black.dataset.midi = bMidi;
+        black.dataset.code = code;
+        black.style.left = `calc(${(i + 1) * (100 / whiteNotes.length)}% - 14px)`;
+        black.addEventListener('pointerdown', (e) => { e.preventDefault(); ensureAudio(); triggerNote(bMidi); black.classList.add('active'); spawnLaser(black); });
+        black.addEventListener('pointerup', () => { releaseNote(bMidi); black.classList.remove('active'); });
+        wrap.appendChild(black);
+      }
+    });
+  }
+
+  function highlightKey(midi, on) {
+    $$(`.key[data-midi="${midi}"]`).forEach((k) => {
+      k.classList.toggle('active', on);
+      if (on) spawnLaser(k);
+    });
+  }
+
+  function spawnLaser(el) {
+    const rect = el.getBoundingClientRect();
+    const trail = document.createElement('div');
+    trail.className = 'key-laser';
+    trail.style.left = rect.left + rect.width / 2 + 'px';
+    trail.style.top = rect.top + 'px';
+    document.body.appendChild(trail);
+    setTimeout(() => trail.remove(), 600);
+  }
+
+  function updateOctaveDisplay() {
+    $('#octaveDisplay').textContent = 'BASE OCT ' + state.baseOctave;
+  }
+
+  function codeToMidi(code) {
+    const c = code.toLowerCase();
+    const wi = KEY_WHITE.indexOf(c);
+    if (wi >= 0) {
+      const semi = whiteNotes[wi];
+      const note = NOTE_NAMES[semi % 12];
+      return midiFromNote(note, state.baseOctave + (semi >= 12 ? 1 : 0));
+    }
+  if (KEY_BLACK[c] !== undefined) {
+      const offsets = [1, 3, 6, 8, 10];
+      const semi = offsets[KEY_BLACK[c]];
+      const note = NOTE_NAMES[semi % 12];
+      return midiFromNote(note, state.baseOctave + (semi >= 12 ? 1 : 0));
+    }
+    return null;
+  }
+
+  async function ensureAudio() {
+    if (!audioCtx) await initAudio();
+    else await audioCtx.resume();
+  }
+
+  window.addEventListener('keydown', async (e) => {
+    if (e.repeat) return;
+    if (e.target.matches('input, select')) return;
+    const midi = codeToMidi(e.key);
+    if (midi == null) return;
+    e.preventDefault();
+    state.pressedKeys.add(e.key.toLowerCase());
+    await ensureAudio();
+    triggerNote(midi);
+  });
+
+  window.addEventListener('keyup', (e) => {
+    const midi = codeToMidi(e.key);
+    state.pressedKeys.delete(e.key.toLowerCase());
+    if (midi != null) releaseNote(midi);
+  });
+
+  // MIDI
+  function setupMidi() {
+    if (!navigator.requestMIDIAccess) {
+      $('#midiStatus').textContent = 'MIDI: unsupported';
+      return;
+    }
+    navigator.requestMIDIAccess().then((access) => {
+      const attach = () => {
+        state.midiInputs.forEach((i) => { i.onmidimessage = null; });
+        state.midiInputs = [];
+        for (const input of access.inputs.values()) {
+          state.midiInputs.push(input);
+          input.onmidimessage = onMidi;
+        }
+        $('#midiStatus').textContent = 'MIDI: ' + (state.midiInputs.length ? state.midiInputs.length + ' device(s)' : 'no devices');
+      };
+      attach();
+      access.onstatechange = attach;
+    }).catch(() => { $('#midiStatus').textContent = 'MIDI: denied'; });
+  }
+
+  function onMidi(msg) {
+    const [cmd, note, vel] = msg.data;
+    const type = cmd & 0xf0;
+    if (type === 0x90 && vel > 0) {
+      ensureAudio().then(() => triggerNote(note, vel / 127));
+    } else if (type === 0x80 || (type === 0x90 && vel === 0)) {
+      releaseNote(note);
+    }
+  }
+
+  // Gamification
+  let comboTimer = null;
+  function onNotePlayed(midi) {
+    state.combo++;
+    if (state.combo > state.comboMax) state.comboMax = state.combo;
+    $('#comboCount').textContent = state.combo;
+    $('#comboCount').classList.add('pulse');
+    setTimeout(() => $('#comboCount').classList.remove('pulse'), 120);
+
+    const now = performance.now();
+    state.gameStats.noteTimes.push(now);
+    state.gameStats.noteTimes = state.gameStats.noteTimes.filter((t) => now - t < 5000);
+    state.gameStats.uniqueNotes.add(midi);
+    state.gameStats.uniqueBurst = state.gameStats.uniqueNotes.size;
+    const last15 = state.gameStats.noteTimes.filter((t) => now - t < 1500);
+    state.gameStats.burst6 = last15.length >= 6;
+
+    clearTimeout(comboTimer);
+    comboTimer = setTimeout(() => {
+      state.combo = 0;
+      $('#comboCount').textContent = '0';
+      state.gameStats.uniqueNotes.clear();
+      state.gameStats.uniqueBurst = 0;
+    }, 900);
+
+    checkChallenge();
+  }
+
+  function resetComboIfNeeded() {
+    /* combo decays on timeout only */
+  }
+
+  function rollChallenge() {
+    state.challenge = CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
+    $('#challengeText').textContent = state.challenge.text;
+    state.gameStats.burst6 = false;
+    state.gameStats.uniqueNotes.clear();
+    state.gameStats.uniqueBurst = 0;
+    state.comboMax = 0;
+  }
+
+  function checkChallenge() {
+    if (!state.challenge) return;
+    const snapshot = {
+      params: state.params,
+      comboMax: state.comboMax,
+      uniqueBurst: state.gameStats.uniqueBurst,
+      burst6: state.gameStats.burst6,
+    };
+    if (state.challenge.check(snapshot)) {
+      completeChallenge();
+    }
+  }
+
+  function completeChallenge() {
+    const xpGain = 75 + Math.floor(Math.random() * 40);
+    state.xp += xpGain;
+    $('#xpText').textContent = state.xp + ' XP';
+    const pct = Math.min(100, (state.xp % 200) / 2);
+    $('#xpFill').style.width = pct + '%';
+    const rank = [...RANKS].reverse().find((r) => state.xp >= r.min) || RANKS[0];
+    $('#rankLevel').textContent = rank.name;
+
+    state.overclockUntil = performance.now() + 4000;
+    $('#appWrap').classList.add('overclock');
+    setTimeout(() => $('#appWrap').classList.remove('overclock'), 4000);
+
+    burstParticles();
+    rollChallenge();
+  }
+
+  // Visualizer
+  const visCanvas = $('#visCanvas');
+  const visCtx = visCanvas.getContext('2d');
+  const partCanvas = $('#particleCanvas');
+  const partCtx = partCanvas.getContext('2d');
+  let particles = [];
+  let chromaShift = 0;
+  let bassEnergy = 0;
+
+  function resizeCanvas() {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const rect = visCanvas.parentElement.getBoundingClientRect();
+    visCanvas.width = rect.width * dpr;
+    visCanvas.height = 280 * dpr;
+    visCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    partCanvas.width = window.innerWidth;
+    partCanvas.height = window.innerHeight;
+  }
+
+  function burstParticles() {
+    const cx = visCanvas.parentElement.getBoundingClientRect().left + visCanvas.parentElement.offsetWidth / 2;
+    const cy = 120;
+    for (let i = 0; i < 48; i++) {
+      particles.push({
+        x: cx, y: cy,
+        vx: (Math.random() - 0.5) * 8,
+        vy: (Math.random() - 0.5) * 8,
+        life: 1,
+        color: ['#00f3ff', '#ff0055', '#39ff14'][Math.floor(Math.random() * 3)],
+      });
+    }
+  }
+
+  function drawVisualizer() {
+    const w = visCanvas.parentElement.clientWidth;
+    const h = 280;
+    visCtx.fillStyle = '#050508';
+    visCtx.fillRect(0, 0, w, h);
+
+    const resBoost = state.params.resonance / 24;
+    chromaShift += ((resBoost * 6 + bassEnergy * 4) - chromaShift) * 0.08;
+
+    // Perspective grid
+    visCtx.save();
+    const gridPulse = 1 + bassEnergy * 0.35 + resBoost * 0.2;
+    const horizon = h * 0.42;
+    visCtx.strokeStyle = `rgba(0, 243, 255, ${0.15 + resBoost * 0.25})`;
+    visCtx.lineWidth = 1;
+    const lines = 14;
+    for (let i = 0; i < lines; i++) {
+      const t = i / lines;
+      const y = horizon + (h - horizon) * t * gridPulse;
+      visCtx.beginPath();
+      visCtx.moveTo(0, y);
+      visCtx.lineTo(w, y);
+      visCtx.stroke();
+    }
+    const vanX = w / 2 + Math.sin(performance.now() / 900) * chromaShift * 3;
+    for (let i = -8; i <= 8; i++) {
+      visCtx.beginPath();
+      visCtx.moveTo(vanX, horizon);
+      visCtx.lineTo(vanX + i * 40, h);
+      visCtx.stroke();
+    }
+    visCtx.restore();
+
+    // Oscilloscope with chromatic aberration
+    if (analyser) {
+      const buf = new Uint8Array(analyser.fftSize);
+      analyser.getByteTimeDomainData(buf);
+      let bass = 0;
+      const freq = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(freq);
+      for (let i = 0; i < 24; i++) bass += freq[i];
+      bassEnergy = bass / (24 * 255);
+
+      const drawWave = (offset, color) => {
+        visCtx.strokeStyle = color;
+        visCtx.lineWidth = 2;
+        visCtx.beginPath();
+        const slice = w / buf.length;
+        for (let i = 0; i < buf.length; i++) {
+          const v = (buf[i] - 128) / 128;
+          const y = horizon / 2 + v * (horizon / 2) * (1.2 + resBoost);
+          const x = i * slice + offset;
+          if (i === 0) visCtx.moveTo(x, y);
+          else visCtx.lineTo(x, y);
+        }
+        visCtx.stroke();
+      };
+      drawWave(-chromaShift, 'rgba(255,0,85,0.75)');
+      drawWave(0, '#00f3ff');
+      drawWave(chromaShift, 'rgba(57,255,20,0.55)');
+    } else {
+      visCtx.fillStyle = '#00f3ff';
+      visCtx.font = '12px monospace';
+      visCtx.fillText('AWAITING SIGNAL — ENGAGE POWER CORE', 16, horizon / 2);
+    }
+
+    // Particles on vis
+    partCtx.clearRect(0, 0, partCanvas.width, partCanvas.height);
+    particles = particles.filter((p) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= 0.02;
+      if (p.life <= 0) return false;
+      partCtx.fillStyle = p.color;
+      partCtx.globalAlpha = p.life;
+      partCtx.fillRect(p.x, p.y, 3, 3);
+      partCtx.globalAlpha = 1;
+      return true;
+    });
+
+    requestAnimationFrame(drawVisualizer);
+  }
+
+  // Init
+  function init() {
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    initKnobs();
+    bindControls();
+    buildKeyboard();
+    updateOctaveDisplay();
+    syncUI();
+    setupMidi();
+    drawVisualizer();
+    $('#challengeText').textContent = 'Engage POWER CORE, then complete vectors for XP';
+  }
+
+  document.body.addEventListener('click', () => { if (audioCtx?.state === 'suspended') audioCtx.resume(); }, { once: false });
+
+  init();
+})();
+  </script>
+</body>
+</html></body></html>
