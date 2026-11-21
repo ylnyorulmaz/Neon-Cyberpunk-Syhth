@@ -22,6 +22,18 @@
       color: var(--text);
       min-height: 100vh;
       overflow-x: hidden;
+      --hit-glow: #00f3ff;
+      transition: background-color 0.35s ease;
+    }
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      background: radial-gradient(ellipse 120% 80% at 50% 0%, color-mix(in srgb, var(--hit-glow) 28%, transparent), transparent 55%);
+      opacity: 0.85;
+      transition: background 0.2s ease;
     }
     body::before {
       content: "";
@@ -58,7 +70,56 @@
     .combo-value { font-size: 28px; font-weight: 800; color: var(--magenta); text-shadow: 0 0 12px var(--magenta); }
     .combo-value.pulse { transform: scale(1.08); transition: transform .1s; }
 
-    .app-wrap { max-width: 1200px; margin: 0 auto; padding: 16px; transition: filter .3s; }
+    .color-wash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9990;
+      opacity: 0;
+      mix-blend-mode: screen;
+      transition: opacity 0.06s ease-out;
+    }
+    .color-wash.flash { opacity: 1; animation: wash-out 0.55s ease-out forwards; }
+    @keyframes wash-out {
+      0% { opacity: 0.92; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.02); }
+    }
+
+    .play-arena {
+      position: relative;
+      z-index: 2;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 12px 16px 10px;
+      background: linear-gradient(180deg, rgba(20, 8, 40, 0.95), rgba(7, 7, 12, 0.6));
+      border-bottom: 2px solid transparent;
+      border-image: linear-gradient(90deg, var(--magenta), var(--cyan), var(--green), var(--magenta)) 1;
+      box-shadow: 0 12px 48px rgba(0, 243, 255, 0.12);
+    }
+    .play-arena h2 {
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      text-align: center;
+      margin-bottom: 10px;
+      background: linear-gradient(90deg, var(--magenta), var(--cyan), var(--green));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 0 8px rgba(0, 243, 255, 0.5));
+    }
+    .note-flash-readout {
+      text-align: center;
+      font-size: clamp(1.2rem, 4vw, 1.8rem);
+      font-weight: 900;
+      letter-spacing: 0.25em;
+      min-height: 1.4em;
+      margin: 6px 0 4px;
+      text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+      transition: color 0.08s;
+    }
+    .note-flash-readout.idle { opacity: 0.35; font-size: 11px; letter-spacing: 0.15em; }
+
+    .app-wrap { max-width: 1200px; margin: 0 auto; padding: 16px; transition: filter .3s; position: relative; z-index: 2; }
     .app-wrap.overclock { filter: drop-shadow(0 0 20px var(--cyan)) brightness(1.08); }
     .app-wrap.overclock .panel { border-color: var(--green); box-shadow: 0 0 24px rgba(57,255,20,.25); }
 
@@ -146,44 +207,116 @@
     .octave-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 11px; }
     .midi-status { color: var(--dim); font-size: 10px; margin-left: auto; }
 
+    .keyboard-wrap {
+      position: relative;
+      padding: 10px 8px 6px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(0, 243, 255, 0.25);
+      box-shadow: inset 0 0 30px rgba(255, 0, 85, 0.08);
+    }
     .keyboard {
-      position: relative; display: flex; height: 120px; gap: 2px; padding: 8px 0 0;
+      position: relative;
+      display: flex;
+      height: 148px;
+      gap: 3px;
+      padding: 4px 0 0;
     }
     .key {
-      position: relative; border: none; cursor: pointer; border-radius: 0 0 4px 4px;
-      transition: background .05s, box-shadow .1s;
+      position: relative;
+      border: none;
+      cursor: pointer;
+      border-radius: 0 0 8px 8px;
+      transition: transform 0.05s, box-shadow 0.08s, filter 0.08s;
+      --key-color: #00f3ff;
+      overflow: hidden;
+    }
+    .key::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 10px;
+      background: var(--key-color);
+      box-shadow: 0 0 16px var(--key-color);
     }
     .key.white {
-      flex: 1; background: linear-gradient(180deg, #e8f4ff 0%, #b8c8d8 100%);
-      border: 1px solid #8090a0; min-width: 0;
+      flex: 1;
+      background: linear-gradient(180deg, #f8fcff 0%, #d0dce8 55%, #a8b8c8 100%);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      min-width: 0;
     }
     .key.white.active {
-      background: linear-gradient(180deg, var(--cyan) 0%, #0088aa 100%);
-      box-shadow: 0 0 20px var(--cyan);
+      background: linear-gradient(180deg, var(--key-color) 0%, #101018 120%);
+      transform: translateY(2px) scale(0.98);
+      box-shadow: 0 0 28px var(--key-color), 0 0 60px color-mix(in srgb, var(--key-color) 60%, transparent);
+      filter: brightness(1.2) saturate(1.4);
     }
     .key.black {
-      position: absolute; width: 28px; height: 68px; z-index: 2;
-      background: linear-gradient(180deg, #2a2a38, #0a0a10);
-      border: 1px solid var(--magenta);
+      position: absolute;
+      width: 32px;
+      height: 82px;
+      z-index: 2;
+      background: linear-gradient(180deg, #353545, #080810);
+      border: 2px solid var(--key-color);
     }
-    .key.black.active { background: linear-gradient(180deg, var(--magenta), #880033); box-shadow: 0 0 16px var(--magenta); }
-    .key-label { font-size: 9px; color: #304050; position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); pointer-events: none; }
-    .key.active .key-label { color: #fff; }
+    .key.black.active {
+      background: linear-gradient(180deg, var(--key-color), #1a0010);
+      box-shadow: 0 0 24px var(--key-color), 0 0 48px var(--key-color);
+      transform: translateY(2px);
+    }
+    .key-label { font-size: 9px; font-weight: 700; color: #2a3540; position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); pointer-events: none; }
+    .key.active .key-label { color: #fff; text-shadow: 0 0 8px var(--key-color); }
+    .key-glow-pulse {
+      position: absolute;
+      inset: -4px;
+      border-radius: inherit;
+      border: 2px solid var(--key-color);
+      opacity: 0;
+      pointer-events: none;
+      animation: key-ring 0.45s ease-out forwards;
+    }
+    @keyframes key-ring {
+      0% { opacity: 0.9; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.15); }
+    }
 
     .key-hint { font-size: 10px; color: var(--dim); margin-top: 8px; text-align: center; }
 
     .key-laser {
-      position: fixed; width: 3px; height: 60px;
-      background: linear-gradient(180deg, var(--cyan), transparent);
-      pointer-events: none; z-index: 10000;
-      animation: laser-rise .6s ease-out forwards;
+      position: fixed;
+      width: 6px;
+      height: 100px;
+      pointer-events: none;
+      z-index: 10000;
+      animation: laser-rise 0.65s ease-out forwards;
+      filter: blur(0.5px);
     }
     @keyframes laser-rise {
       from { opacity: 1; transform: translateY(0) scaleY(1); }
-      to { opacity: 0; transform: translateY(-50px) scaleY(1.5); }
+      to { opacity: 0; transform: translateY(-120px) scaleY(2); }
+    }
+
+    .hit-pop {
+      position: fixed;
+      pointer-events: none;
+      z-index: 10001;
+      font-weight: 800;
+      font-size: 14px;
+      letter-spacing: 0.12em;
+      animation: hit-pop 0.7s ease-out forwards;
+      text-shadow: 0 0 12px currentColor;
+    }
+    @keyframes hit-pop {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-60px) scale(1.2); }
     }
 
     .particle-layer { position: fixed; inset: 0; pointer-events: none; z-index: 9999; }
+
+    .synth-header.compact { margin-bottom: 10px; }
+    .synth-header.compact .subtitle { color: var(--green); }
 
     @media (max-width: 900px) {
       .game-bar { grid-template-columns: 1fr; }
@@ -212,10 +345,34 @@
     </div>
   </header>
 
+  <div id="colorWash" class="color-wash" aria-hidden="true"></div>
+
+  <section class="play-arena" id="playArena">
+    <h2>// SOUND GAME — PAINT THE NEON</h2>
+    <div class="preset-row">
+      <button type="button" class="preset-btn" data-preset="blade">BLADE BASS</button>
+      <button type="button" class="preset-btn" data-preset="neon">NEON ARP</button>
+      <button type="button" class="preset-btn" data-preset="glitch">GLITCH LEAD</button>
+      <button type="button" class="preset-btn" data-preset="void">VOID PAD</button>
+    </div>
+    <div class="octave-row">
+      <button type="button" class="btn-mini" id="octDown">OCT −</button>
+      <span id="octaveDisplay">BASE OCT 4</span>
+      <button type="button" class="btn-mini" id="octUp">OCT +</button>
+      <span class="midi-status" id="midiStatus">MIDI: scanning…</span>
+      <button type="button" class="btn-mini" id="audioInitBtn">POWER CORE</button>
+    </div>
+    <div class="keyboard-wrap">
+      <div class="keyboard" id="keyboard"></div>
+    </div>
+    <p class="note-flash-readout idle" id="noteFlash">TAP KEYS · EVERY NOTE SPLASHES COLOR</p>
+    <p class="key-hint">A–L whites · W E T Y U blacks — each note paints the screen</p>
+  </section>
+
   <div class="app-wrap" id="appWrap">
-    <header class="synth-header">
+    <header class="synth-header compact">
       <h1><span>NEON</span> CYBER // SYNTH LAB</h1>
-      <p class="subtitle">WEB AUDIO · RACK v9.4 · ZERO-DEP NODE GRAPH</p>
+      <p class="subtitle">SOUND GAME + SYNTH HACKER RACK</p>
     </header>
 
     <div class="visualizer-wrap">
@@ -364,24 +521,6 @@
         </div>
       </section>
 
-      <section class="panel panel-wide keyboard-panel">
-        <h2>// PLAYBACK INTERFACE</h2>
-        <div class="preset-row">
-          <button type="button" class="preset-btn" data-preset="blade">BLADE BASS</button>
-          <button type="button" class="preset-btn" data-preset="neon">NEON ARP</button>
-          <button type="button" class="preset-btn" data-preset="glitch">GLITCH LEAD</button>
-          <button type="button" class="preset-btn" data-preset="void">VOID PAD</button>
-        </div>
-        <div class="octave-row">
-          <button type="button" class="btn-mini" id="octDown">OCT −</button>
-          <span id="octaveDisplay">BASE OCT 4</span>
-          <button type="button" class="btn-mini" id="octUp">OCT +</button>
-          <span class="midi-status" id="midiStatus">MIDI: scanning…</span>
-          <button type="button" class="btn-mini" id="audioInitBtn">POWER CORE</button>
-        </div>
-        <div class="keyboard" id="keyboard"></div>
-        <p class="key-hint">Keys: A–L whites · W E T Y U blacks · Click POWER CORE or play to unlock audio</p>
-      </section>
     </div>
   </div>
 
@@ -393,6 +532,32 @@
   const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const KEY_WHITE = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'];
   const KEY_BLACK = { w: 0, e: 1, t: 3, y: 4, u: 6 };
+
+  const NOTE_PALETTE = [
+    { hex: '#ff0055', name: 'MAGENTA', emoji: '◆' },
+    { hex: '#ff3366', name: 'ROSE', emoji: '♦' },
+    { hex: '#ff8800', name: 'BLAZE', emoji: '▲' },
+    { hex: '#ffee00', name: 'SOLAR', emoji: '☀' },
+    { hex: '#39ff14', name: 'ACID', emoji: '✦' },
+    { hex: '#00ff99', name: 'MINT', emoji: '◇' },
+    { hex: '#00f3ff', name: 'CYAN', emoji: '◎' },
+    { hex: '#0088ff', name: 'AZURE', emoji: '●' },
+    { hex: '#6644ff', name: 'VIOLET', emoji: '▼' },
+    { hex: '#cc00ff', name: 'UV', emoji: '✸' },
+    { hex: '#ff00cc', name: 'PINK', emoji: '★' },
+    { hex: '#ffffff', name: 'PRISM', emoji: '◈' },
+  ];
+
+  function notePaint(midi) {
+    return NOTE_PALETTE[((midi % 12) + 12) % 12];
+  }
+
+  function hexToRgba(hex, a) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
 
   const RANKS = [
     { min: 0, name: 'INITIATE' },
@@ -732,7 +897,7 @@
     voice._started = t;
 
     state.activeNotes.set(id, voice);
-    onNotePlayed(midi);
+    onNotePlayed(midi, velocity);
     highlightKey(midi, true);
   }
 
@@ -1006,11 +1171,13 @@
       const midi = midiFromNote(note, oct + (semi >= 12 ? 1 : 0));
       const key = document.createElement('button');
       key.type = 'button';
+      const nc = notePaint(midi);
       key.className = 'key white';
       key.dataset.midi = midi;
       key.dataset.code = KEY_WHITE[i] || '';
+      key.style.setProperty('--key-color', nc.hex);
       key.innerHTML = `<span class="key-label">${note}</span>`;
-      key.addEventListener('pointerdown', (e) => { e.preventDefault(); ensureAudio(); triggerNote(midi); key.classList.add('active'); });
+      key.addEventListener('pointerdown', (e) => { e.preventDefault(); ensureAudio(); triggerNote(midi); key.classList.add('active'); ringKey(key); });
       key.addEventListener('pointerup', () => { releaseNote(midi); key.classList.remove('active'); });
       key.addEventListener('pointerleave', () => { if (!state.pressedKeys.has(KEY_WHITE[i])) return; });
       wrap.appendChild(key);
@@ -1023,11 +1190,13 @@
         const code = bk ? bk[0] : '';
         const black = document.createElement('button');
         black.type = 'button';
+        const bnc = notePaint(bMidi);
         black.className = 'key black';
         black.dataset.midi = bMidi;
         black.dataset.code = code;
-        black.style.left = `calc(${(i + 1) * (100 / whiteNotes.length)}% - 14px)`;
-        black.addEventListener('pointerdown', (e) => { e.preventDefault(); ensureAudio(); triggerNote(bMidi); black.classList.add('active'); spawnLaser(black); });
+        black.style.setProperty('--key-color', bnc.hex);
+        black.style.left = `calc(${(i + 1) * (100 / whiteNotes.length)}% - 16px)`;
+        black.addEventListener('pointerdown', (e) => { e.preventDefault(); ensureAudio(); triggerNote(bMidi); black.classList.add('active'); ringKey(black); spawnLaser(black, bnc.hex); });
         black.addEventListener('pointerup', () => { releaseNote(bMidi); black.classList.remove('active'); });
         wrap.appendChild(black);
       }
@@ -1037,18 +1206,44 @@
   function highlightKey(midi, on) {
     $$(`.key[data-midi="${midi}"]`).forEach((k) => {
       k.classList.toggle('active', on);
-      if (on) spawnLaser(k);
+      if (on) {
+        const col = k.style.getPropertyValue('--key-color') || notePaint(midi).hex;
+        spawnLaser(k, col);
+        ringKey(k);
+      }
     });
   }
 
-  function spawnLaser(el) {
+  function ringKey(el) {
+    const ring = document.createElement('span');
+    ring.className = 'key-glow-pulse';
+    ring.style.setProperty('--key-color', el.style.getPropertyValue('--key-color') || '#00f3ff');
+    el.appendChild(ring);
+    setTimeout(() => ring.remove(), 500);
+  }
+
+  function spawnLaser(el, color) {
     const rect = el.getBoundingClientRect();
+    const col = color || el.style.getPropertyValue('--key-color') || '#00f3ff';
     const trail = document.createElement('div');
     trail.className = 'key-laser';
+    trail.style.background = `linear-gradient(180deg, ${col}, transparent)`;
+    trail.style.boxShadow = `0 0 20px ${col}, 0 0 40px ${col}`;
     trail.style.left = rect.left + rect.width / 2 + 'px';
     trail.style.top = rect.top + 'px';
     document.body.appendChild(trail);
-    setTimeout(() => trail.remove(), 600);
+    setTimeout(() => trail.remove(), 650);
+    for (let i = 0; i < 6; i++) {
+      particles.push({
+        x: rect.left + rect.width / 2,
+        y: rect.top,
+        vx: (Math.random() - 0.5) * 6,
+        vy: -4 - Math.random() * 6,
+        life: 1,
+        color: col,
+        size: 2 + Math.random() * 4,
+      });
+    }
   }
 
   function updateOctaveDisplay() {
@@ -1125,9 +1320,69 @@
     }
   }
 
+  // Color juice — screen paint + splats
+  let screenSplats = [];
+  let screenTint = { r: 7, g: 7, b: 12 };
+  const colorWash = () => $('#colorWash');
+
+  function paintScreen(midi, velocity = 0.9) {
+    const p = notePaint(midi);
+    const noteName = NOTE_NAMES[midi % 12];
+    const int = 0.35 + velocity * 0.55;
+    document.body.style.setProperty('--hit-glow', p.hex);
+    const wash = colorWash();
+    if (wash) {
+      wash.style.background = `
+        radial-gradient(circle at 50% 12%, ${hexToRgba(p.hex, int * 0.9)} 0%, transparent 42%),
+        radial-gradient(ellipse 100% 60% at 30% 80%, ${hexToRgba(p.hex, 0.35)}, transparent 50%),
+        radial-gradient(ellipse 100% 60% at 70% 80%, ${hexToRgba(p.hex, 0.22)}, transparent 50%)`;
+      wash.classList.remove('flash');
+      void wash.offsetWidth;
+      wash.classList.add('flash');
+    }
+    const el = $('#noteFlash');
+    if (el) {
+      el.classList.remove('idle');
+      el.style.color = p.hex;
+      el.textContent = `${p.emoji} ${noteName} · ${p.name}`;
+    }
+    screenSplats.push({
+      x: Math.random() * partCanvas.width,
+      y: Math.random() * partCanvas.height * 0.65,
+      r: 30 + velocity * 80,
+      maxR: 120 + velocity * 220 + Math.random() * 180,
+      color: p.hex,
+      life: 1,
+    });
+    const r = parseInt(p.hex.slice(1, 3), 16);
+    const g = parseInt(p.hex.slice(3, 5), 16);
+    const b = parseInt(p.hex.slice(5, 7), 16);
+    screenTint.r += (r - screenTint.r) * 0.22;
+    screenTint.g += (g - screenTint.g) * 0.22;
+    screenTint.b += (b - screenTint.b) * 0.22;
+    $('#comboCount').style.color = p.hex;
+    $('#comboCount').style.textShadow = `0 0 16px ${p.hex}`;
+  }
+
+  function spawnHitPop(midi, combo) {
+    const p = notePaint(midi);
+    const pop = document.createElement('div');
+    pop.className = 'hit-pop';
+    pop.style.color = p.hex;
+    pop.style.left = `${20 + Math.random() * 60}%`;
+    pop.style.top = `${100 + Math.random() * 40}px`;
+    pop.textContent = combo > 3 ? `×${combo} ${p.name}` : p.name;
+    document.body.appendChild(pop);
+    setTimeout(() => pop.remove(), 750);
+  }
+
   // Gamification
   let comboTimer = null;
-  function onNotePlayed(midi) {
+  function onNotePlayed(midi, velocity = 0.9) {
+    paintScreen(midi, velocity);
+    spawnHitPop(midi, state.combo + 1);
+    burstParticles(notePaint(midi).hex, 12 + state.combo);
+
     state.combo++;
     if (state.combo > state.comboMax) state.comboMax = state.combo;
     $('#comboCount').textContent = state.combo;
@@ -1215,16 +1470,29 @@
     partCanvas.height = window.innerHeight;
   }
 
-  function burstParticles() {
+  function burstParticles(color, count = 48) {
+    const palette = color ? [color, '#ffffff', notePaint(Math.floor(Math.random() * 12)).hex] : ['#00f3ff', '#ff0055', '#39ff14'];
     const cx = visCanvas.parentElement.getBoundingClientRect().left + visCanvas.parentElement.offsetWidth / 2;
     const cy = 120;
-    for (let i = 0; i < 48; i++) {
+    for (let i = 0; i < count; i++) {
       particles.push({
-        x: cx, y: cy,
-        vx: (Math.random() - 0.5) * 8,
-        vy: (Math.random() - 0.5) * 8,
+        x: cx + (Math.random() - 0.5) * 200,
+        y: cy + (Math.random() - 0.5) * 80,
+        vx: (Math.random() - 0.5) * 10,
+        vy: (Math.random() - 0.5) * 10,
         life: 1,
-        color: ['#00f3ff', '#ff0055', '#39ff14'][Math.floor(Math.random() * 3)],
+        color: palette[Math.floor(Math.random() * palette.length)],
+        size: 2 + Math.random() * 5,
+      });
+    }
+    for (let i = 0; i < 8; i++) {
+      screenSplats.push({
+        x: cx + (Math.random() - 0.5) * 400,
+        y: cy,
+        r: 20,
+        maxR: 200 + Math.random() * 200,
+        color: palette[0],
+        life: 1,
       });
     }
   }
@@ -1232,8 +1500,12 @@
   function drawVisualizer() {
     const w = visCanvas.parentElement.clientWidth;
     const h = 280;
-    visCtx.fillStyle = '#050508';
+    const bg = `rgb(${Math.round(screenTint.r)},${Math.round(screenTint.g)},${Math.round(screenTint.b)})`;
+    visCtx.fillStyle = bg;
     visCtx.fillRect(0, 0, w, h);
+    screenTint.r += (7 - screenTint.r) * 0.02;
+    screenTint.g += (7 - screenTint.g) * 0.02;
+    screenTint.b += (12 - screenTint.b) * 0.02;
 
     const resBoost = state.params.resonance / 24;
     chromaShift += ((resBoost * 6 + bassEnergy * 4) - chromaShift) * 0.08;
@@ -1286,8 +1558,9 @@
         }
         visCtx.stroke();
       };
+      const glow = document.body.style.getPropertyValue('--hit-glow') || '#00f3ff';
       drawWave(-chromaShift, 'rgba(255,0,85,0.75)');
-      drawWave(0, '#00f3ff');
+      drawWave(0, glow);
       drawWave(chromaShift, 'rgba(57,255,20,0.55)');
     } else {
       visCtx.fillStyle = '#00f3ff';
@@ -1295,16 +1568,28 @@
       visCtx.fillText('AWAITING SIGNAL — ENGAGE POWER CORE', 16, horizon / 2);
     }
 
-    // Particles on vis
     partCtx.clearRect(0, 0, partCanvas.width, partCanvas.height);
+    screenSplats = screenSplats.filter((s) => {
+      s.r += (s.maxR - s.r) * 0.08;
+      s.life -= 0.018;
+      if (s.life <= 0) return false;
+      partCtx.beginPath();
+      partCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      partCtx.fillStyle = s.color;
+      partCtx.globalAlpha = s.life * 0.35;
+      partCtx.fill();
+      partCtx.globalAlpha = 1;
+      return true;
+    });
     particles = particles.filter((p) => {
       p.x += p.vx;
       p.y += p.vy;
       p.life -= 0.02;
       if (p.life <= 0) return false;
+      const sz = p.size || 3;
       partCtx.fillStyle = p.color;
       partCtx.globalAlpha = p.life;
-      partCtx.fillRect(p.x, p.y, 3, 3);
+      partCtx.fillRect(p.x, p.y, sz, sz);
       partCtx.globalAlpha = 1;
       return true;
     });
